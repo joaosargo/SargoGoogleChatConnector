@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "google-chat-connector": {
+      "command": "node",
+      "args": ["C:/projects/AIDCLconnectorGoogleChat/dist/index.js"],
+      "env": {
+        "GOOGLE_CHAT_CLIENT_SECRET": "C:/projects/AIDCLconnectorGoogleChat/client_secret.json",
+        "GOOGLE_CHAT_TOKEN": "C:/projects/AIDCLconnectorGoogleChat/token.json"
+      }
+    }
+  }
+}
