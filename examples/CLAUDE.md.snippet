@@ -14,18 +14,19 @@ ship, naming/API decisions) — post it to the team instead:
    can reply "/<number>" (e.g. "/2", or "/2 because it's simpler") to put an answer on record.
    Anything else in the thread is just discussion. Only the first valid "/<number>" reply from
    anyone counts as the decision.
-2. Do NOT poll `sync_team_vote` yourself turn-by-turn (that burns a full reasoning turn, and
-   tokens, per check). Instead, run a single backgrounded shell script that loops internally —
-   sleep 5 seconds, call the MCP tool via its underlying request, repeat — for up to 2 hours,
-   and only stops when `answer` is non-null. You are only re-engaged once, when that background
-   job finishes; you spend no tokens while it's waiting.
-3. As soon as `answer` is non-null, that's the final decision — stop and use it.
-   `sync_team_vote` already posted the confirmation, cleaned up the poll message, and removed
-   its own seed reactions (leaving genuine teammate reactions visible) for you. Then call
-   `record_vote_usage` once with your best count/estimate of tokens spent on this question
-   (from posting the poll through detecting the answer) and your model name — it gets appended
-   to the end of the poll message so the team can see what each decision cost.
-4. If nobody answered within the 2 hours, fall back to asking me directly with
+2. Call `wait_for_team_vote` with the poll object `post_team_vote` returned. It blocks — inside
+   the MCP server, not by you polling — until someone answers or `timeoutSeconds` elapses
+   (default 1800s/30min, max 7200s/2h; pass a larger `timeoutSeconds` if you want the full 2
+   hours). You spend no extra tokens or turns while it waits: the tool call simply doesn't
+   return until there's an answer or time runs out. Do NOT call `sync_team_vote` yourself in a
+   turn-by-turn loop — that's the old, token-burning way this tool replaces.
+3. If `timedOut` is false, `answer` is the final decision — stop and use it. `wait_for_team_vote`
+   already posted the confirmation, cleaned up the poll message, and removed its own seed
+   reactions (leaving genuine teammate reactions visible) for you. Then call `record_vote_usage`
+   once with your best count/estimate of tokens spent on this question (from posting the poll
+   through detecting the answer) and your model name — it gets appended to the end of the poll
+   message so the team can see what each decision cost.
+4. If `timedOut` is true, nobody answered in time — fall back to asking me directly with
    `AskUserQuestion`, using the same question and options, and mention that the team poll went
    unanswered so I know why you're asking me directly instead of waiting longer.
 

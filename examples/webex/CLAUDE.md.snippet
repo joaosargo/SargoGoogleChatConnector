@@ -1,0 +1,30 @@
+<!--
+  Paste this into the target project's CLAUDE.md to activate team voting via Webex for that project.
+  Fill in TEAM_ROOM_ID with the room ID from the webex-connector's list_chat_spaces tool.
+-->
+
+## Team decisions via Webex
+
+When you would normally call `AskUserQuestion` for a decision that affects the whole team
+(not a quick clarification only I could answer, e.g. architecture choices, which approach to
+ship, naming/API decisions) — post it to the team instead, using the `webex-connector` tools:
+
+1. Call `post_team_vote` with `roomId: "TEAM_ROOM_ID"`, the question, and 2-9 options. The
+   message tells everyone to reply in its thread with "/<number>" (e.g. "/2", or
+   "/2 because it's simpler"). Anything else in the thread is just discussion. Only the first
+   valid "/<number>" reply from anyone counts as the decision.
+2. Call `wait_for_team_vote` with the poll object `post_team_vote` returned. It blocks — inside
+   the MCP server, not by you polling — until someone answers or `timeoutSeconds` elapses
+   (default 1800s/30min, max 7200s/2h). You spend no extra tokens or turns while it waits. Do
+   NOT call `sync_team_vote` yourself in a turn-by-turn loop.
+3. If `timedOut` is false, `answer` is the final decision — stop and use it. The poll message
+   has already been updated to show who answered, and a confirmation posted in the thread. Then
+   call `record_vote_usage` once with your best count/estimate of tokens spent on this question
+   and your model name — it gets appended to the end of the poll message.
+4. If `timedOut` is true, nobody answered in time — fall back to asking me directly with
+   `AskUserQuestion`, using the same question and options, and mention that the team poll went
+   unanswered.
+
+Use `share_team_message` for one-way updates and `share_team_file` to share documents with the
+same room. Purely local/implementation-detail questions (things only I would know) should still
+go to me directly via `AskUserQuestion`.

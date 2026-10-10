@@ -1,17 +1,21 @@
 {
   "name": "google-chat-connector",
   "version": "0.1.0",
-  "description": "MCP server that lets Claude Code post questions to a Google Chat space (as you) and read teammates' emoji-reaction votes.",
+  "description": "MCP servers that let Claude Code ask team questions, post announcements and share files in Google Chat or Webex spaces, as you.",
   "type": "module",
   "private": true,
   "bin": {
-    "google-chat-connector": "./dist/index.js"
+    "google-chat-connector": "./dist/index.js",
+    "webex-connector": "./dist/webex/index.js"
   },
   "scripts": {
     "build": "tsc -p .",
     "login": "tsx src/login.ts",
+    "login:webex": "tsx src/webex/login.ts",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "start:webex": "node dist/webex/index.js",
+    "dev": "tsx src/index.ts",
+    "dev:webex": "tsx src/webex/index.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

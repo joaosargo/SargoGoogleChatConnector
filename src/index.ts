@@ -2,7 +2,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { getAuthorizedClient } from "./auth.js";
-import { listMySpaces, postTeamVote, syncTeamVote, recordVoteUsage, postTeamMessage, postTeamFiles } from "./chat.js";
+import {
+  listMySpaces,
+  postTeamVote,
+  syncTeamVote,
+  waitForTeamVote,
+  recordVoteUsage,
+  postTeamMessage,
+  postTeamFiles,
+} from "./chat.js";
 
 const server = new McpServer({
   name: "google-chat-connector",
@@ -79,6 +87,58 @@ server.registerTool(
   async ({ poll }) => {
     const auth = await getAuthorizedClient();
     const result = await syncTeamVote(auth, poll);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.registerTool(
+  "wait_for_team_vote",
+  {
+    title: "Wait for a team vote to resolve",
+    description:
+      "Blocks until someone answers the poll, checking every `intervalSeconds` (default 5s) — use this " +
+      "instead of calling sync_team_vote yourself in a loop. The polling happens inside this server " +
+      "process, so waiting costs no extra reasoning turns or tokens on the calling side: the tool call " +
+      "simply doesn't return until there's an answer or `timeoutSeconds` elapses (default 1800 = 30 min). " +
+      "Returns the same shape as sync_team_vote plus `timedOut` — if `timedOut` is true, no one " +
+      "answered in time, so fall back to asking the user directly. Keep `timeoutSeconds` under your MCP " +
+      "client's own request-timeout if it enforces one, since this call blocks for the full duration.",
+    inputSchema: {
+      poll: pollSchema,
+      timeoutSeconds: z
+        .number()
+        .int()
+        .positive()
+        .max(7200)
+        .default(1800)
+        .describe("Max seconds to wait before giving up (default 1800, max 7200)."),
+      intervalSeconds: z
+        .number()
+        .int()
+        .positive()
+        .max(300)
+        .default(5)
+        .describe("Seconds between checks (default 5)."),
+    },
+  },
+  async ({ poll, timeoutSeconds, intervalSeconds }, extra) => {
+    const auth = await getAuthorizedClient();
+    const progressToken = extra._meta?.progressToken;
+    const result = await waitForTeamVote(auth, poll, {
+      timeoutSeconds,
+      intervalSeconds,
+      signal: extra.signal,
+      onTick: (elapsedSeconds) => {
+        if (progressToken !== undefined) {
+          extra
+            .sendNotification({
+              method: "notifications/progress",
+              params: { progressToken, progress: elapsedSeconds, total: timeoutSeconds },
+            })
+            .catch(() => {});
+        }
+      },
+    });
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   }
 );

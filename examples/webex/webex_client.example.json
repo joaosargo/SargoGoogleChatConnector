@@ -1,0 +1,5 @@
+{
+  "client_id": "PASTE_CLIENT_ID_FROM_DEVELOPER_WEBEX_COM",
+  "client_secret": "PASTE_CLIENT_SECRET_FROM_DEVELOPER_WEBEX_COM",
+  "redirect_uri": "http://localhost:8765/callback"
+}

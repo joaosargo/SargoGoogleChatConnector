@@ -2,9 +2,8 @@ import { chat_v1, google } from "googleapis";
 import type { OAuth2Client } from "google-auth-library";
 import { createReadStream } from "fs";
 import path from "path";
+import { OPTION_EMOJI, parseAnswer, formatDate, mimeTypeFor, pollUntilAnswered, type WaitOptions } from "./shared.js";
 
-const OPTION_EMOJI = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
-const ANSWER_REGEX = /^\/(\d+)\s*([\s\S]*)$/;
 const REGISTERED_PREFIX = "✅ *Registered*";
 
 export interface TeamVoteOption {
@@ -79,22 +78,6 @@ export async function postTeamMessage(
   return { spaceName, messageName };
 }
 
-const MIME_TYPES: Record<string, string> = {
-  ".md": "text/markdown",
-  ".markdown": "text/markdown",
-  ".txt": "text/plain",
-  ".csv": "text/csv",
-  ".json": "application/json",
-  ".pdf": "application/pdf",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-};
-
-function mimeTypeFor(filePath: string): string {
-  return MIME_TYPES[path.extname(filePath).toLowerCase()] ?? "application/octet-stream";
-}
-
 async function uploadAttachment(
   chat: chat_v1.Chat,
   spaceName: string,
@@ -165,10 +148,6 @@ export async function postTeamFiles(
   }
 
   return { spaceName, messageName, threadName, fileMessageNames };
-}
-
-function formatDate(iso: string): string {
-  return iso.slice(0, 16).replace("T", " ") + " UTC";
 }
 
 function optionsBlock(options: TeamVoteOption[]): string {
@@ -277,16 +256,14 @@ export async function syncTeamVote(
   let answer: TeamVoteAnswer | null = null;
   for (const m of replies) {
     if (!m.text || !m.sender?.name || !m.name) continue;
-    const match = m.text.trim().match(ANSWER_REGEX);
-    if (!match) continue;
-    const optionIndex = parseInt(match[1], 10);
-    if (optionIndex < 1 || optionIndex > poll.options.length) continue;
+    const parsed = parseAnswer(m.text, poll.options.length);
+    if (!parsed) continue;
 
     answer = {
       userName: m.sender.name,
       displayName: m.sender.displayName ?? m.sender.name,
-      option: poll.options[optionIndex - 1],
-      detail: match[2].trim() || null,
+      option: poll.options[parsed.optionIndex - 1],
+      detail: parsed.detail,
       respondedAt: m.createTime ?? new Date().toISOString(),
       sourceMessageName: m.name,
     };
@@ -331,6 +308,23 @@ export async function syncTeamVote(
   }
 
   return { answer, justRegistered: !alreadyConfirmed };
+}
+
+export interface TeamVoteWaitResult extends TeamVoteSyncResult {
+  /** True if no answer arrived before timeoutSeconds elapsed. */
+  timedOut: boolean;
+}
+
+/** Blocks until the poll resolves or timeoutSeconds elapses — see pollUntilAnswered. */
+export async function waitForTeamVote(
+  auth: OAuth2Client,
+  poll: Pick<
+    TeamVotePoll,
+    "spaceName" | "messageName" | "threadName" | "question" | "options" | "selfUserName" | "selfDisplayName"
+  >,
+  opts: WaitOptions
+): Promise<TeamVoteWaitResult> {
+  return pollUntilAnswered(() => syncTeamVote(auth, poll), opts);
 }
 
 const USAGE_PREFIX = "Token spent:";

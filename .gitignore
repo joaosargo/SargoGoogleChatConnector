@@ -1,7 +1,9 @@
 node_modules/
 dist/
 
-# Google OAuth credentials and tokens — never commit these
+# OAuth credentials and tokens — never commit these
 client_secret*.json
 token.json
 *.token.json
+webex_client.json
+webex_token.json

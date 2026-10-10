@@ -1,6 +1,13 @@
 # Setup
 
-This connector authenticates as **you** (your own Google account) via OAuth — no Workspace
+This repo contains two independent MCP servers — set up only the one(s) you need:
+
+- **Google Chat** — sections 1–5 below.
+- **Webex** — see [Webex setup](#webex-setup) at the end.
+
+# Google Chat setup
+
+The Google Chat connector authenticates as **you** (your own Google account) via OAuth — no Workspace
 admin approval and no bot/Chat-app registration is needed. You just need to be able to create
 a personal Google Cloud project, which almost every Workspace account can do unless your org
 has explicitly disabled it.
@@ -69,3 +76,51 @@ is not directly useful standalone (it's an MCP stdio server) — easier to just 
 See `examples/.mcp.json` and `examples/CLAUDE.md.snippet` in this repo. In short, add this
 server to that project's `.mcp.json` and paste the CLAUDE.md snippet (with your space ID filled
 in) into that project's `CLAUDE.md`.
+
+# Webex setup
+
+The Webex connector also signs in as **you**, through a Webex "integration" (OAuth). Any Webex
+user can register an integration; no admin approval is needed unless your org has restricted
+third-party integrations.
+
+## 1. Register an integration (one-time, ~3 minutes)
+
+1. Go to [developer.webex.com](https://developer.webex.com/), sign in with your normal Webex
+   account, then open your avatar menu → **My Webex Apps** → **Create a New App** →
+   **Create an Integration**.
+2. Fill in:
+   - **Integration name**, **icon** and **description**: anything; only you see these on the
+     consent screen.
+   - **Redirect URI**: `http://localhost:8765/callback` (must match exactly).
+   - **Scopes**: `spark:messages_read`, `spark:messages_write`, `spark:rooms_read`,
+     `spark:people_read`. Webex adds `spark:kms` automatically.
+3. Save, then copy the **Client ID** and **Client Secret** shown.
+4. Copy `examples/webex/webex_client.example.json` to `webex_client.json` in this repo's root and
+   paste in the Client ID and Client Secret. It's git-ignored; never commit it.
+
+## 2. Build and log in
+
+```bash
+npm install
+npm run build
+npm run login:webex
+```
+
+This opens your browser to approve the integration with your Webex account, then saves
+`webex_token.json` (git-ignored). The access token refreshes itself automatically. If the
+connector goes unused for ~90 days the refresh token lapses and you run `npm run login:webex`
+again.
+
+## 3. Enable it in a Claude Code project
+
+Add the server from `examples/webex/.mcp.json` to that project's `.mcp.json`, ask Claude to call
+the webex-connector's `list_chat_spaces` tool to find your team's room ID, and paste
+`examples/webex/CLAUDE.md.snippet` (with that room ID filled in) into the project's `CLAUDE.md`.
+
+## Differences from the Google Chat connector
+
+- **No tap-to-vote**: Webex's API doesn't expose reactions, so answers are `/N` thread replies only.
+- **Files**: one file per Webex message (100MB max), so multiple files are shared as a caption
+  message plus one thread reply per file, same as in Google Chat.
+- **Edits**: Webex allows at most 10 edits per message. The connector uses at most 2 (resolve,
+  then usage line).

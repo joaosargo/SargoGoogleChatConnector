@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "webex-connector": {
+      "command": "node",
+      "args": ["C:/projects/AIDCLconnectorGoogleChat/dist/webex/index.js"],
+      "env": {
+        "WEBEX_CLIENT": "C:/projects/AIDCLconnectorGoogleChat/webex_client.json",
+        "WEBEX_TOKEN": "C:/projects/AIDCLconnectorGoogleChat/webex_token.json"
+      }
+    }
+  }
+}
